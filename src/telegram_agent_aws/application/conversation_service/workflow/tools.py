@@ -19,7 +19,7 @@ def get_retriever_tool():
         embedding=embeddings,
     )
 
-    retriever = vector_store.as_retriever()
+    retriever = vector_store.as_retriever(search_kwargs={"k": 2})
 
     retriever_tool = create_retriever_tool(
         retriever=retriever,

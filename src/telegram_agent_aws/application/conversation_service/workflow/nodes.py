@@ -28,7 +28,7 @@ def router_node(state: TelegramAgentState):
     response = llm_structured.invoke([sys_msg, state["messages"][-1]])
 
     if response.response_type == "text":
-        if random.random() > 0.5:
+        if random.random() > 0.95:
             # This is a way to give more realism to the bot.
             # From time to time, the Telegram Agent will send voice notes,
             # even if the "response_type" is "text"!
