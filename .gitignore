@@ -174,3 +174,7 @@ cython_debug/
 .pypirc
 
 .DS_Store
+
+# Compile code
+codigo_completo.txt
+compilar_codigo.ps1
