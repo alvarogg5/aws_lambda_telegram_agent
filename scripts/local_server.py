@@ -22,7 +22,7 @@ async def handle_webhook(request: Request):
         event = {"body": json.dumps(body_json)}
         
         print("\n--- Recibida petición de Telegram ---")
-        response = await lambda_handler(event, None) 
+        response = lambda_handler(event, None) 
         print("--- Respuesta de Lambda generada ---")
         
         return response

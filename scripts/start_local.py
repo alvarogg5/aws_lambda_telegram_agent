@@ -6,6 +6,8 @@ import time
 import httpx  # Importamos la librería que acabamos de instalar
 from dotenv import load_dotenv
 import atexit
+import nest_asyncio
+nest_asyncio.apply()
 
 # --- Setup Paths and Env ---
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
