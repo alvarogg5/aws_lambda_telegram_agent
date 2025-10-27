@@ -46,8 +46,6 @@ async def process_update(update_data: dict):
 async def lambda_handler(event, context):
     """
     AWS Lambda handler for Telegram webhook.
-
-    The event contains the API Gateway payload with the Telegram update in the body.
     """
     print("**Event received**")
     print(json.dumps(event, indent=2))
@@ -64,20 +62,10 @@ async def lambda_handler(event, context):
         print(json.dumps(update_data, indent=2))
 
         # --- INICIO DEL ARREGLO ---
-        # Comprobar si ya hay un bucle de eventos en ejecución (como el de Uvicorn)
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None  # No hay bucle en ejecución
-
-        if loop and loop.is_running():
-            # Estamos en un entorno async (ej. Uvicorn), usamos 'await'
-            print("--- Running in async loop (await) ---")
-            await process_update(update_data)
-        else:
-            # Estamos en un entorno sync (ej. AWS Lambda), usamos 'asyncio.run'
-            print("--- Running in sync context (asyncio.run) ---")
-            asyncio.run(process_update(update_data))
+        # Ya estamos en un contexto 'async' (tanto en Lambda como en local)
+        # Simplemente 'await' el proceso.
+        print("--- Awaiting process_update ---")
+        await process_update(update_data)
         # --- FIN DEL ARREGLO ---
 
         return {"statusCode": 200, "body": json.dumps({"ok": True})}
