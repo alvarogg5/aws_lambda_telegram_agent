@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     )
     OPIK_CONFIG_PATH: str = "/tmp/.opik.config"
 
+    # Mongo
     MONGODB_CONNECTION_STRING: str
+    MONGODB_DATABASE_NAME: str
 
 
 settings = Settings()
