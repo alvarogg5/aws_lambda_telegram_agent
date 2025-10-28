@@ -1,18 +1,15 @@
 import asyncio
 import json
+import os
 
 from telegram import Bot, Update
 
 from telegram_agent_aws.config import settings
 from telegram_agent_aws.infrastructure.telegram.handlers import handle_photo, handle_text, handle_voice
-
-# ¡IMPORTANTE! Mueve la configuración de Opik de __init__.py aquí
-# para evitar el 'init timeout' (Este sigue siendo un buen cambio).
 from telegram_agent_aws.infrastructure.opik_utils import configure
+
 _OPIK_CONFIGURED = False
 
-
-# Esta función sigue siendo ASÍNCRONA
 async def process_update(update_data: dict):
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     update = Update.de_json(update_data, bot=bot)
@@ -47,7 +44,7 @@ async def process_update(update_data: dict):
         await bot.shutdown()
 
 
-# Esta función vuelve a ser SÍNCRONA
+# Handler síncrono para AWS Lambda. Usa asyncio.run().
 def lambda_handler(event, context):
     global _OPIK_CONFIGURED
 
@@ -70,10 +67,7 @@ def lambda_handler(event, context):
         print("**Parsed update data**")
         print(json.dumps(update_data, indent=2))
 
-        # --- LA CLAVE ---
-        # Usamos asyncio.run() para ejecutar nuestro código async
-        # Esto funciona en Lambda (que es síncrona)
-        # Y ahora también funciona en local (gracias a nest_asyncio)
+        # Este es el método correcto para un entorno síncrono como Lambda
         asyncio.run(process_update(update_data))
 
         return {"statusCode": 200, "body": json.dumps({"ok": True})}
