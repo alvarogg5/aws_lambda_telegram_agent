@@ -4,23 +4,24 @@ on:
   push:
     branches:
       - main
+      - develop
 
 env:
-  AWS_REGION: eu-west-1                   # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: telegram_bot_agent           # set this to your Amazon ECR repository name
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: telegram_bot_agent
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    environment: production
+    # environment: production # Lo quitamos para que no pida aprobación manual en develop
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -28,7 +29,26 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set environment-specific variables
+        id: vars
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "LAMBDA_FUNCTION_NAME=telegram-agent-lambda" >> $GITHUB_OUTPUT
+            echo "LAMBDA_ROLE=${{ secrets.AWS_LAMBDA_EXECUTION_ROLE }}" >> $GITHUB_OUTPUT
+            echo "TELEGRAM_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> $GITHUB_OUTPUT
+            echo "WEBHOOK_ENDPOINT=${{ secrets.TELEGRAM_WEBHOOK_ENDPOINT }}" >> $GITHUB_OUTPUT
+            echo "MONGO_URI=${{ secrets.MONGODB_CONNECTION_STRING_PROD || secrets.MONGODB_CONNECTION_STRING }}" >> $GITHUB_OUTPUT
+            echo "MONGO_DB_NAME=${{ secrets.MONGODB_DATABASE_NAME_PROD }}" >> $GITHUB_OUTPUT
+          else
+            echo "LAMBDA_FUNCTION_NAME=telegram-agent-lambda-staging" >> $GITHUB_OUTPUT
+            echo "LAMBDA_ROLE=${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_STAGING }}" >> $GITHUB_OUTPUT
+            echo "TELEGRAM_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN_DEV }}" >> $GITHUB_OUTPUT
+            echo "WEBHOOK_ENDPOINT=${{ secrets.TELEGRAM_WEBHOOK_ENDPOINT_STAGING || secrets.TELEGRAM_WEBHOOK_ENDPOINT }}" >> $GITHUB_OUTPUT
+            echo "MONGO_URI=${{ secrets.MONGODB_CONNECTION_STRING_STAGING }}" >> $GITHUB_OUTPUT
+            echo "MONGO_DB_NAME=${{ secrets.MONGODB_DATABASE_NAME_STAGING }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
@@ -36,9 +56,6 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Build a docker container and
-          # push it to ECR so that it can
-          # be deployed to ECS.
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
@@ -46,10 +63,10 @@ jobs:
       - name: Deploy Lambda function with container image
         uses: aws-actions/aws-lambda-deploy@v1.1.0
         with:
-          function-name: telegram-agent-lambda
+          function-name: ${{ steps.vars.outputs.LAMBDA_FUNCTION_NAME }}
           package-type: Image
           image-uri: ${{ steps.build-image.outputs.image }}
-          role: ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE }}
-          environment: '{"OPENAI_API_KEY":"${{ secrets.OPENAI_API_KEY }}","ELEVENLABS_API_KEY":"${{ secrets.ELEVENLABS_API_KEY }}","TELEGRAM_BOT_TOKEN":"${{ secrets.TELEGRAM_BOT_TOKEN }}","TELEGRAM_WEBHOOK_ENDPOINT":"${{ secrets.TELEGRAM_WEBHOOK_ENDPOINT }}","MONGODB_CONNECTION_STRING":"${{ secrets.MONGODB_CONNECTION_STRING }}","COMET_API_KEY":"${{ secrets.COMET_API_KEY }}","QDRANT_API_KEY":"${{ secrets.QDRANT_API_KEY }}","QDRANT_URL":"${{ secrets.QDRANT_URL }}", "OPIK_CONFIG_PATH": "/tmp/.opik.config"}'
+          role: ${{ steps.vars.outputs.LAMBDA_ROLE }}
+          environment: '{"OPENAI_API_KEY":"${{ secrets.OPENAI_API_KEY }}","ELEVENLABS_API_KEY":"${{ secrets.ELEVENLABS_API_KEY }}","TELEGRAM_BOT_TOKEN":"${{ steps.vars.outputs.TELEGRAM_TOKEN }}","TELEGRAM_WEBHOOK_ENDPOINT":"${{ steps.vars.outputs.WEBHOOK_ENDPOINT }}","MONGODB_CONNECTION_STRING":"${{ steps.vars.outputs.MONGO_URI }}","MONGODB_DATABASE_NAME":"${{ steps.vars.outputs.MONGO_DB_NAME }}","COMET_API_KEY":"${{ secrets.COMET_API_KEY }}","QDRANT_API_KEY":"${{ secrets.QDRANT_API_KEY }}","QDRANT_URL":"${{ secrets.QDRANT_URL }}", "OPIK_CONFIG_PATH": "/tmp/.opik.config"}'
           timeout: 180
           memory-size: 1024

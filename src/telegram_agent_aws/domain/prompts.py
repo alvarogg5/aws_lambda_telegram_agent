@@ -5,20 +5,32 @@ from loguru import logger
 class Prompt:
     def __init__(self, name: str, prompt: str) -> None:
         self.name = name
-
-        try:
-            self.__prompt = opik.Prompt(name=name, prompt=prompt)
-        except Exception:
-            logger.warning("Can't use Opik to version the prompt (probably due to missing or invalid credentials). Falling back to local prompt. The prompt is not versioned, but it's still usable.")
-
-            self.__prompt = prompt
+        self.local_prompt = prompt  # Guarda el prompt local
+        self.__opik_prompt = None   # El prompt de Opik (aún no cargado)
+        self.__tried_loading = False # Bandera para intentarlo solo una vez
 
     @property
     def prompt(self) -> str:
-        if isinstance(self.__prompt, opik.Prompt):
-            return self.__prompt.prompt
+        # Esta es la "carga diferida".
+        # El código de Opik solo se ejecuta cuando alguien pide el .prompt
+        if not self.__tried_loading:
+            self.__tried_loading = True # Marcar como intentado
+            try:
+                # Intenta cargar y guardar el prompt de Opik
+                self.__opik_prompt = opik.Prompt(name=self.name, prompt=self.local_prompt)
+                logger.info(f"Opik prompt '{self.name}' cargado exitosamente.")
+            except Exception:
+                logger.warning(
+                    f"No se pudo usar Opik para el prompt '{self.name}'. "
+                    "Usando la versión local (no versionada)."
+                )
+                # Si falla, __opik_prompt seguirá siendo None
+
+        # Devuelve el prompt de Opik si se cargó, si no, devuelve el local
+        if isinstance(self.__opik_prompt, opik.Prompt):
+            return self.__opik_prompt.prompt
         else:
-            return self.__prompt
+            return self.local_prompt
 
     def __str__(self) -> str:
         return self.prompt

@@ -29,3 +29,10 @@ index-qdrant:
 	@echo 'Indexing documents to Qdrant...'
 	uv run python -c "from telegram_agent_aws.application.rag_indexing_service.index_documents import index_documents; index_documents()"
 	@echo 'Documents indexed successfully.'
+
+# --- Fully Automated Local Development ---
+.PHONY: dev
+dev:
+	@echo "Iniciando entorno de desarrollo local completo..."
+	@echo "Lanzando servidor, ngrok y configurando webhook..."
+	@uv run python scripts/start_local.py

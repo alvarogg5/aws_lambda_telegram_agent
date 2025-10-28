@@ -39,6 +39,10 @@ dev = [
     "pre-commit",
     "pytest",
     "ruff",
+    "fastapi>=0.120.0",
+    "uvicorn[standard]>=0.38.0",
+    "httpx>=0.28.1",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.scripts]

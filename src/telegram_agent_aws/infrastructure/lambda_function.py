@@ -1,15 +1,17 @@
 import asyncio
 import json
+import os
 
 from telegram import Bot, Update
 
 from telegram_agent_aws.config import settings
 from telegram_agent_aws.infrastructure.telegram.handlers import handle_photo, handle_text, handle_voice
+from telegram_agent_aws.infrastructure.opik_utils import configure
 
+_OPIK_CONFIGURED = False
 
 async def process_update(update_data: dict):
     bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-
     update = Update.de_json(update_data, bot=bot)
 
     class WebhookContext:
@@ -30,7 +32,6 @@ async def process_update(update_data: dict):
                 await update.message.reply_text("Sorry, I don't support this message type yet.")
         else:
             print("Update doesn't contain a message")
-
     except Exception as e:
         print(f"Error processing update: {e}")
         if update.message:
@@ -43,12 +44,15 @@ async def process_update(update_data: dict):
         await bot.shutdown()
 
 
+# Handler síncrono para AWS Lambda. Usa asyncio.run().
 def lambda_handler(event, context):
-    """
-    AWS Lambda handler for Telegram webhook.
+    global _OPIK_CONFIGURED
 
-    The event contains the API Gateway payload with the Telegram update in the body.
-    """
+    if not _OPIK_CONFIGURED:
+        print("--- Running Opik/Comet configuration (first invocation only) ---")
+        configure()
+        _OPIK_CONFIGURED = True
+
     print("**Event received**")
     print(json.dumps(event, indent=2))
 
@@ -63,6 +67,7 @@ def lambda_handler(event, context):
         print("**Parsed update data**")
         print(json.dumps(update_data, indent=2))
 
+        # Este es el método correcto para un entorno síncrono como Lambda
         asyncio.run(process_update(update_data))
 
         return {"statusCode": 200, "body": json.dumps({"ok": True})}
@@ -70,7 +75,6 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"Error in lambda_handler: {e}")
         import traceback
-
         traceback.print_exc()
 
         return {"statusCode": 500, "body": json.dumps({"ok": False, "error": str(e)})}
